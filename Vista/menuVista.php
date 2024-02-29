@@ -43,6 +43,11 @@ class Vista {
         $this->mostrarMenu($opcionesInscripciones);
     }
 
+    public function mostrarSubMenuProfesores() {
+        $opcionesProfesores = ["Dar de Alta", "Dar de Baja", "Modificar Datos", "Listar Profesores"];
+        $this->mostrarMenu($opcionesProfesores);
+    }
+
     public function mostrarMensajeError($mensaje) {
         echo "Error: " . $mensaje . "\n";
     }
