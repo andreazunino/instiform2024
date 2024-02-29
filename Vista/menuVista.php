@@ -3,7 +3,7 @@
 class Vista {
    
     public function mostrarLogin() {
-        $opcionesMenuPrincipal = [
+        $opcionesLogin = [
             "Soy Estudiante",
             "Soy Profesor",
             "Soy Administrador"
@@ -12,7 +12,7 @@ class Vista {
     }
 
     public function mostrarMenuEstudiantes() {
-        $opcionesEstudiantes = ["Inscribirse a curso", "Anular inscripcion a curso", "Ver cursos inscripto"];
+        $opcionesEstudiantes = ["Inscribirse a curso", "Anular inscripcion a curso", "Ver cursos inscriptos"];
         $this->mostrarMenu($opcionesEstudiantes);
     }
 
@@ -23,8 +23,8 @@ class Vista {
 
 
     public function mostrarMenuAdministradores(){
-        $opcionesAdministradores = ["Administración de Estudiantes", "Administración de Cursos", "Administración de Inscripciones"];
-        $this->mostrarMenu($opcionesMenuAdministradores);
+        $opcionesAdministradores = ["Administración de Estudiantes", "Administración de Cursos", "Administración de Inscripciones", "Administración de Profesores"];
+        $this->mostrarMenu($opcionesAdministradores);
 
     }
 
@@ -58,6 +58,7 @@ class Vista {
         echo "=========== Instiform ===========\n";
         echo "\n";
     }
+
     
 }
 
