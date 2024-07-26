@@ -9,30 +9,24 @@ class Inscripcion {
         $this->cargarInscripcionesDesdePostgres();
     }
 
-    //Cuenta cuántos inscriptos hay en un curso específico
-    protected function getInscriptosEnCurso($cursoElegido){
-        $cantidadInscriptos = 0;    
+    // Cuenta cuántos inscriptos hay en un curso específico
+    protected function getInscriptosEnCurso($cursoElegido) {
+        $cantidadInscriptos = 0;
         foreach ($this->inscripciones as $inscripcion) {
-            if ($inscripcion['id_curso'] == $cursoElegido){
+            if ($inscripcion['id_curso'] == $cursoElegido) {
                 $cantidadInscriptos++;
             }
         }
-        return $cantidadInscriptos; 
+        return $cantidadInscriptos;
     }
 
-    public function cargarInscripciones() {
-        $gestionEstudiante = new gestionEstudiante();
-        $estudiantes = $gestionEstudiante->obtenerEstudiantesParaInscripcion();
-    
-        $gestionCurso = new gestionCurso();
-        $cursos = $gestionCurso->obtenerCursosParaInscripcion();
-    
-        echo "Estudiantes Disponibles:\n";
-        foreach ($estudiantes as $estudiante) {
-            echo "DNI del Estudiante: {$estudiante->getDNI()}, - Nombre del Estudiante: {$estudiante->getNombre()}\n";
-        }
-    
-        $estudianteElegido = readline("Ingrese el DNI del estudiante: ");
+    public function cargarInscripciones($estudianteElegido) {
+       
+        $cursos = new GestionCurso();
+        $cursos = $cursos->obtenerCursos();
+        $estudiantes = new GestionEstudiante();
+        $estudiantes = $estudiantes->obtenerEstudiantesParaInscripcion();
+
         echo "Cursos Disponibles:\n";
         foreach ($cursos as $curso) {
             echo "ID del Curso: {$curso->getId()}, - Nombre del Curso: {$curso->getNombre()}, - Cupo: {$curso->getCupo()}\n";
@@ -40,18 +34,17 @@ class Inscripcion {
     
         $cursoElegido = readline("Ingrese el ID del curso: ");
     
-        //verificar el cupo del curso antes de permitir nueva inscripción
-        foreach ($cursos as $curso){
-            if ($curso->getId() == $cursoElegido){
-                $inscriptosEnCurso = $this->getInscriptosEnCurso($cursoElegido);        
-                if ( $inscriptosEnCurso >= $curso->getCupo()){
-                    echo "No hay más vacantes para inscribirse en este curso. \n";
+        // Verificar el cupo del curso antes de permitir nueva inscripción
+        foreach ($cursos as $curso) {
+            if ($curso->getId() == $cursoElegido) {
+                $inscriptosEnCurso = $this->getInscriptosEnCurso($cursoElegido);
+                if ($inscriptosEnCurso >= $curso->getCupo()) {
+                    echo "No hay más vacantes para inscribirse en este curso.\n";
                     return;
-                } 
+                }
             }
-        }  //se agregó esta funcion
-
-        
+        }
+    
         // Comprobar si el estudiante ya está inscrito en el mismo curso
         foreach ($this->inscripciones as $inscripcionExistente) {
             if ($inscripcionExistente['dni_estudiante'] == $estudianteElegido && $inscripcionExistente['id_curso'] == $cursoElegido) {
@@ -92,58 +85,56 @@ class Inscripcion {
             "id" => null,
             "id_curso" => $cursoElegido,
             "dni_estudiante" => $estudianteElegido,
-            "calificacion" => null
+            "calificacion" => null,
+            "fecha_calificacion" => null
         ];
     
         $this->inscripciones[] = $inscripcion;
-        echo "Inscripcion exitosa\n";
+        echo "Inscripción exitosa\n";
         $this->guardarInscripciones();
-       
+    
         $this->cargarInscripcionesDesdePostgres();
     }
-    
-    
     
     public function cargarInscripcionesDesdePostgres() {
         $conexion = Conexion::getConexion();
         $query = $conexion->query("SELECT * FROM inscripcion");
         $resultados = $query->fetchAll(PDO::FETCH_ASSOC);
-
+    
         // Vaciar el arreglo de inscripciones antes de cargar las inscripciones nuevamente
         $this->inscripciones = [];
-
+    
         foreach ($resultados as $inscripcionData) {
             $inscripcion = [
                 "id" => $inscripcionData['id'],
                 "id_curso" => $inscripcionData['id_curso'],
                 "dni_estudiante" => $inscripcionData['dni_estudiante'],
-                "calificacion" => $inscripcionData['calificacion']
+                "calificacion" => $inscripcionData['calificacion'],
+                "fecha_calificacion" => $inscripcionData['fecha_calificacion']
             ];
             $this->inscripciones[] = $inscripcion;
         }
-        
     }
-
+    
     public function guardarInscripciones() {
-        $inscripciones = $this->inscripciones;
         $conexion = Conexion::getConexion();
     
-        foreach ($inscripciones as $inscripcion) {
+        foreach ($this->inscripciones as $inscripcion) {
             $idCurso = $inscripcion['id_curso'];
             $dniEstudiante = $inscripcion['dni_estudiante'];
             $calificacion = $inscripcion['calificacion'];
-            if ($calificacion){
-                $sqlInsercion = "INSERT INTO inscripcion (id_curso, dni_estudiante, calificacion) VALUES ('$idCurso', '$dniEstudiante', '$calificacion') ON CONFLICT (id_curso, dni_estudiante, calificacion) DO NOTHING";
-            } else{
-                $sqlInsercion = "INSERT INTO inscripcion (id_curso, dni_estudiante) VALUES ('$idCurso', '$dniEstudiante') ON CONFLICT (id_curso, dni_estudiante) DO NOTHING";
-            }
-            
-            Conexion::ejecutar($sqlInsercion);
+            $fechaCalificacion = $inscripcion['fecha_calificacion'];
+            $sqlInsercion = "INSERT INTO inscripcion (id_curso, dni_estudiante, calificacion, fecha_calificacion) VALUES (:id_curso, :dni_estudiante, :calificacion, :fecha_calificacion)
+                            ON CONFLICT (id_curso, dni_estudiante) DO UPDATE SET calificacion = :calificacion";
+            $stmt = $conexion->prepare($sqlInsercion);
+            $stmt->bindParam(':id_curso', $idCurso, PDO::PARAM_INT);
+            $stmt->bindParam(':dni_estudiante', $dniEstudiante, PDO::PARAM_STR);
+            $stmt->bindParam(':calificacion', $calificacion, PDO::PARAM_STR);
+            $stmt->bindParam(':fecha_calificacion', $fechaCalificacion, PDO::PARAM_STR);
+            $stmt->execute();
         }
-    
     }
     
-
     public function listarInscripciones() {
         if (empty($this->inscripciones)) {
             echo "No hay inscripciones disponibles.\n";
@@ -151,12 +142,7 @@ class Inscripcion {
             echo "Lista de inscripciones:\n";
             foreach ($this->inscripciones as $inscripcion) {
                 $calificacion = $inscripcion['calificacion'];
-                if ($calificacion){
-                   echo "ID de inscripción: " . $inscripcion['id'] . ", ID del Curso: " . $inscripcion['id_curso'] . ", DNI del Estudiante: " . $inscripcion['dni_estudiante'] . ", calificación: " . $inscripcion['calificacion'] . "\n";
-                }else
-                {
-                    echo "ID de inscripción: " . $inscripcion['id'] . ", ID del Curso: " . $inscripcion['id_curso'] . ", DNI del Estudiante: " . $inscripcion['dni_estudiante'] . ", calificación: --" . "\n";
-                }
+                echo "ID de inscripción: " . $inscripcion['id'] . ", ID del Curso: " . $inscripcion['id_curso'] . ", DNI del Estudiante: " . $inscripcion['dni_estudiante'] . ", Calificación: " . ($calificacion ?? '--') . "\n";
             }
         }
     }
@@ -164,8 +150,10 @@ class Inscripcion {
     public function eliminarInscripcionPorID($idInscripcion) {
         $conexion = Conexion::getConexion();
         try {
-            $sql = "DELETE FROM inscripcion WHERE id = '$idInscripcion'";
-            Conexion::ejecutar($sql);
+            $sql = "DELETE FROM inscripcion WHERE id = :id";
+            $stmt = $conexion->prepare($sql);
+            $stmt->bindParam(':id', $idInscripcion, PDO::PARAM_INT);
+            $stmt->execute();
     
             $indice = null;
             foreach ($this->inscripciones as $key => $inscripcion) {
@@ -181,10 +169,10 @@ class Inscripcion {
                 echo "No se encontró ninguna inscripción con el ID especificado.\n";
             }
         } catch (PDOException $e) {
-            echo 'Error al eliminar inscripción.'();
+            echo 'Error al eliminar inscripción: ' . $e->getMessage() . "\n";
         }
     }
-
+    
     public function mostrarInscripcionesPorDNI($dni) {
         $inscripcionesEncontradas = [];
     
@@ -218,5 +206,62 @@ class Inscripcion {
             }
         }
     }
-}
+    
+    public function actualizarCalificacion($dniEstudiante, $idCurso, $calificacion, $fechaCalificacion) {
+        $conexion = Conexion::getConexion();
+        $sql = "UPDATE inscripcion SET calificacion = :calificacion, fecha_calificacion = :fecha_calificacion WHERE dni_estudiante = :dni_estudiante AND id_curso = :id_curso";
+        $stmt = $conexion->prepare($sql);
+        $stmt->bindParam(':calificacion', $calificacion, PDO::PARAM_STR);
+        $stmt->bindParam(':fecha_calificacion', $fechaCalificacion, PDO::PARAM_STR);
+        $stmt->bindParam(':dni_estudiante', $dniEstudiante, PDO::PARAM_STR);
+        $stmt->bindParam(':id_curso', $idCurso, PDO::PARAM_INT);
+        $stmt->execute();
+    }
 
+    public function mostrarInscripcionesPorCurso($idCurso) {
+        $inscripcionesPorCurso = [];
+    
+        foreach ($this->inscripciones as $inscripcion) {
+            if ((int)$inscripcion['id_curso'] === (int)$idCurso) {
+                $inscripcionesPorCurso[] = $inscripcion;
+            }
+        }
+    
+        if (empty($inscripcionesPorCurso)) {
+            echo "No se encontraron inscripciones para el curso con ID {$idCurso}.\n";
+        } else {
+            echo "Inscripciones para el curso con ID {$idCurso}:\n";
+            foreach ($inscripcionesPorCurso as $inscripcion) {
+                echo "ID de inscripción: " . $inscripcion['id'] . ", DNI del Estudiante: " . $inscripcion['dni_estudiante'] . ", Calificación: " . ($inscripcion['calificacion'] ?? '--') . "\n";
+            }
+        }
+    }
+
+    
+    //Carga las notas en un curso
+    public function ingresarNotasPorCurso($idCurso) {
+        $inscripcionesPorCurso = [];
+    
+        foreach ($this->inscripciones as $inscripcion) {
+            if ((int)$inscripcion['id_curso'] === (int)$idCurso) {
+                $inscripcionesPorCurso[] = $inscripcion;
+            }
+        }
+    
+        if (empty($inscripcionesPorCurso)) {
+            echo "No se encontraron inscripciones para el curso con ID {$idCurso}.\n";
+        } else {
+            foreach ($inscripcionesPorCurso as $inscripcion) {
+                $dniEstudiante = $inscripcion['dni_estudiante'];
+                echo "Ingrese calificación para el estudiante: " . $inscripcion['dni_estudiante'] . " ENTER para no ingresar nota.". PHP_EOL;
+                $notaIngresada = readline();
+                // Obtener la fecha actual del sistema
+                $fechaCalificacion = date('Y-m-d');
+                if ($notaIngresada && $notaIngresada != PHP_EOL){
+                    $this->actualizarCalificacion($dniEstudiante, $idCurso, $notaIngresada, $fechaCalificacion);       
+                }    
+            }
+        }
+        $this->cargarInscripcionesDesdePostgres();  //Actualiza las inscripciones luego de los cambios
+    }
+}

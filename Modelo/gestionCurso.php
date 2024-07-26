@@ -1,9 +1,10 @@
 <?php
-require_once('Modelo/inscripcion.php');
-class gestionCurso {
+require_once('Modelo/gestionInscripcion.php');
+require_once('Modelo/curso.php');
+
+class GestionCurso {
     private $cursos = [];
 
-    
     public function __construct() {
         $this->cargarCursosDesdePostgres();
     }
@@ -16,7 +17,6 @@ class gestionCurso {
         return $curso->getNombre();
     }
 
-    //se agrega get de cupo
     public function obtenerCupoCurso($curso) {
         return $curso->getCupo();
     }
@@ -27,8 +27,12 @@ class gestionCurso {
                 echo "El curso con Nombre: {$curso->getNombre()} ya existe en la lista de cursos.\n";
                 return;
             }
-        }  
-        echo "El curso se agrego exitosamente\n";
+        }
+        
+        // Asignar un ID null para indicar que el ID debe ser generado por la base de datos
+        $curso->setId(null);
+
+        echo "El curso se agregó exitosamente\n";
         $this->cursos[] = $curso;
         $this->guardarCursos();
     }
@@ -67,17 +71,19 @@ class gestionCurso {
     public function mostrarCurso($curso) {
         echo "ID: " . $curso->getId() . "\n";
         echo "Nombre: " . $curso->getNombre() . "\n";
-        echo "Cupo: " . $curso->getCupo() . "\n"; //se agrega la linea para mostrar cupo
+        echo "Cupo: " . $curso->getCupo() . "\n";
         echo "===============================\n";
     }
 
     public function eliminarCursoPorID($id) {
         $conexion = Conexion::getConexion();
         try {
-            if($id != ""){
-                $sql = "DELETE FROM curso WHERE id = '$id'";
-                Conexion::ejecutar($sql);
-    
+            if (!empty($id)) {
+                $sql = "DELETE FROM curso WHERE id = :id";
+                $stmt = $conexion->prepare($sql);
+                $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+                $stmt->execute();
+
                 foreach ($this->cursos as $key => $curso) {
                     if ((int)$curso->getId() === (int)$id) {
                         unset($this->cursos[$key]);
@@ -87,23 +93,35 @@ class gestionCurso {
                 }
                 return false;
             }
-            } catch (PDOException $e) {
-                echo 'Error al eliminar curso: No puedes eliminar un Curso con Estudiantes Inscriptos en él.'.PHP_EOL;
-            }
-    }
-    
-    
-//ver si se puede modificar cupo o no
-    public function modificarCursoPorId($id, $nuevoNombre, $nuevoCupo) {
-        foreach ($this->cursos as $curso) {
-            if ($curso->getId() == $id) {
-                $curso->setNombre($nuevoNombre);
-                $curso->setCupo($nuevoCupo);
-                $this->guardarCursos();  //No funciona bien, porque lo agrega, no lo modifica
-                return true;
-            }
+        } catch (PDOException $e) {
+            echo 'Error al eliminar curso: No puedes eliminar un Curso con Estudiantes Inscriptos en él.' . PHP_EOL;
         }
-        $this->guardarCursos();
+        return false;
+    }
+
+    public function modificarCursoPorId($id, $nuevoNombre, $nuevoCupo) {
+        $conexion = Conexion::getConexion();
+        try {
+            // Primero, actualizamos el curso en la base de datos
+            $sqlActualizacion = "UPDATE curso SET nombre = :nombre, cupo = :cupo WHERE id = :id";
+            $stmtActualizacion = $conexion->prepare($sqlActualizacion);
+            $stmtActualizacion->bindParam(':nombre', $nuevoNombre, PDO::PARAM_STR);
+            $stmtActualizacion->bindParam(':cupo', $nuevoCupo, PDO::PARAM_INT);
+            $stmtActualizacion->bindParam(':id', $id, PDO::PARAM_INT);
+            $stmtActualizacion->execute();
+            
+            // Luego, actualizamos el curso en el array local
+            foreach ($this->cursos as $curso) {
+                if ($curso->getId() == $id) {
+                    $curso->setNombre($nuevoNombre);
+                    $curso->setCupo($nuevoCupo);
+                    return true;
+                }
+            }
+        } catch (PDOException $e) {
+            echo "Error al modificar curso: " . $e->getMessage() . PHP_EOL;
+        }
+        return false; // Retornar false si no se encontró el curso con el ID especificado
     }
 
     public function obtenerCursos() {
@@ -111,59 +129,68 @@ class gestionCurso {
     }
 
     public function cargarCursosDesdePostgres() {
-        $conexion = Conexion::getConexion();
-        $query = $conexion->query("SELECT * FROM curso");
-        $resultados = $query->fetchAll(PDO::FETCH_ASSOC);
-    
-        // Vaciar el arreglo de cursos antes de cargar los cursos nuevamente
-        $this->cursos = [];
-        
-        //se agrega cupo, hay que agregarlo a la bd!!-->listo
-        foreach ($resultados as $cursoData) {
-            $curso = new Curso($cursoData['id'], $cursoData['nombre'], $cursoData['cupo']);
-            $this->cursos[] = $curso;
+        try {
+            $conexion = Conexion::getConexion();
+            $query = $conexion->query("SELECT * FROM curso");
+            $resultados = $query->fetchAll(PDO::FETCH_ASSOC);
+
+            // Vaciar el arreglo de cursos antes de cargar los cursos nuevamente
+            $this->cursos = [];
+
+            foreach ($resultados as $cursoData) {
+                $curso = new Curso($cursoData['id'], $cursoData['nombre'], $cursoData['cupo']);
+                $this->cursos[] = $curso;
+            }
+        } catch (PDOException $e) {
+            echo "Error al cargar cursos desde la base de datos: " . $e->getMessage() . PHP_EOL;
         }
     }
-    
 
     public function guardarCursos() {
-        $cursos = $this->cursos;
-        $conexion = Conexion::getConexion();
-    
-        foreach ($cursos as $curso) {
-            $nombre = $curso->getNombre();
-            $cupo = $curso->getCupo();
-    
-            // Verificar si el curso ya existe en la base de datos
-            $sqlVerificacion = "SELECT COUNT(*) FROM curso WHERE nombre = :nombre";
-            $stmtVerificacion = $conexion->prepare($sqlVerificacion);
-            $stmtVerificacion->bindParam(':nombre', $nombre, PDO::PARAM_STR);
-            $stmtVerificacion->execute();
-    
-            // Obtener el resultado de la consulta
-            $cantidadCursos = $stmtVerificacion->fetchColumn();
-    
-            // Si el curso no existe, insertarlo en la base de datos
-            if ($cantidadCursos == 0) {
-                $sqlInsercion = "INSERT INTO curso (nombre, cupo) VALUES (:nombre, :cupo)";
-                $stmtInsercion = $conexion->prepare($sqlInsercion);
-                $stmtInsercion->bindParam(':nombre', $nombre, PDO::PARAM_STR);
-                $stmtInsercion->bindParam(':cupo', $cupo, PDO::PARAM_INT);
-                $stmtInsercion->execute();
+        try {
+            $conexion = Conexion::getConexion();
+
+            foreach ($this->cursos as $curso) {
+                $id = $curso->getId();
+                $nombre = $curso->getNombre();
+                $cupo = $curso->getCupo();
+
+                if ($id) {
+                    // Si el curso ya tiene un ID, actualiza el curso existente
+                    $sqlActualizacion = "UPDATE curso SET nombre = :nombre, cupo = :cupo WHERE id = :id";
+                    $stmtActualizacion = $conexion->prepare($sqlActualizacion);
+                    $stmtActualizacion->bindParam(':nombre', $nombre, PDO::PARAM_STR);
+                    $stmtActualizacion->bindParam(':cupo', $cupo, PDO::PARAM_INT);
+                    $stmtActualizacion->bindParam(':id', $id, PDO::PARAM_INT);
+                    $stmtActualizacion->execute();
+                } else {
+                    // Si el curso no tiene ID, insértalo como nuevo
+                    $sqlInsercion = "INSERT INTO curso (nombre, cupo) VALUES (:nombre, :cupo) RETURNING id";
+                    $stmtInsercion = $conexion->prepare($sqlInsercion);
+                    $stmtInsercion->bindParam(':nombre', $nombre, PDO::PARAM_STR);
+                    $stmtInsercion->bindParam(':cupo', $cupo, PDO::PARAM_INT);
+                    $stmtInsercion->execute();
+                    $id = $stmtInsercion->fetchColumn();
+                    $curso->setId($id); // Asignar el ID generado al objeto Curso
+                }
             }
+        } catch (PDOException $e) {
+            echo "Error al guardar cursos en la base de datos: " . $e->getMessage() . PHP_EOL;
         }
-        $this->cargarCursosDesdePostgres();
     }
-    
-    
-    
 
     public function obtenerCursosParaInscripcion() {
-        $cursosParaInscripcion = [];
-        foreach ($this->cursos as $curso) {
-            $cursosParaInscripcion[] = $curso;
+        $conexion = Conexion::getConexion();
+        $query = $conexion->query("SELECT id, nombre, cupo FROM curso");
+        $resultados = $query->fetchAll(PDO::FETCH_ASSOC);
+
+        $cursos = [];
+        foreach ($resultados as $cursoData) {
+            $curso = new Curso($cursoData['id'], $cursoData['nombre'], $cursoData['cupo']);
+            $cursos[] = $curso;
         }
-        return $cursosParaInscripcion;
+
+        return $cursos;
     }
-    
 }
+

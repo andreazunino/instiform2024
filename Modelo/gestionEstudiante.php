@@ -1,10 +1,12 @@
 <?php
 require_once('Modelo/conexionNueva.php');
+require_once('Modelo/estudiante.php');
+
 class gestionEstudiante {
     private $estudiantes = [];
 
     public function __construct() {
-        $this->cargarEstudiantesDesdePostgrees();
+        $this->cargarEstudiantesDesdePostgres();
     }
 
     public function agregarEstudiante($estudiante) {
@@ -14,81 +16,68 @@ class gestionEstudiante {
             echo "El estudiante con el DNI {$estudiante->getDNI()} ya existe en la base de datos.";
             return;
         }
-        $this->estudiantes[] = $estudiante;
-
-        $this->guardarEstudiantes();
- 
-    }
-    
-
-    
-    public function buscarEstudiantePorDNI($dni) {
-        if ($dni != ""){
-            $conexion = Conexion::getConexion();
-            $query = $conexion->prepare("SELECT * FROM estudiante WHERE dni = :dni");
-            $query->bindParam(':dni', $dni);
-            $query->execute();
-    
-            $estudiante = $query->fetch(PDO::FETCH_ASSOC);
-    
-            if ($estudiante) {
-                return new Estudiante(
-                    $estudiante['nombre'],
-                    $estudiante['apellido'],
-                    $estudiante['dni'],
-                    $estudiante['email']
-                 );
-            }   else {
-                return null;
-            } 
-        } 
-    }
-    
-
-    public function cargarEstudiantesDesdePostgrees(){
-        $sql = "SELECT * FROM estudiante";
-        $estudiantes = Conexion::query($sql);
         
-         // Vaciar el arreglo de estudiantes antes de cargar los cursos nuevamente
-         $this->estudiantes = [];
+        $this->estudiantes[] = $estudiante;
+        $this->guardarEstudiantes();
+    }
+
+    public function buscarEstudiantePorDNI($dni) {
+        $conexion = Conexion::getConexion();
+        $query = $conexion->prepare("SELECT * FROM estudiante WHERE dni = :dni");
+        $query->bindParam(':dni', $dni);
+        $query->execute();
+    
+        $estudiante = $query->fetch(PDO::FETCH_ASSOC);
+    
+        if ($estudiante) {
+            return new Estudiante(
+                $estudiante['nombre'],
+                $estudiante['apellido'],
+                $estudiante['dni'],
+                $estudiante['email']
+            );
+        } else {
+            return null;
+        }
+    }
+
+    public function cargarEstudiantesDesdePostgres() {
+        $conexion = Conexion::getConexion();
+        $query = $conexion->query("SELECT * FROM estudiante");
+        $estudiantes = $query->fetchAll(PDO::FETCH_ASSOC);
+
+        $this->estudiantes = [];
 
         foreach ($estudiantes as $estudiante) {
-            if (is_object($estudiante)) {
-                $nuevoEstudiante = new Estudiante(
-                    $estudiante->nombre,
-                    $estudiante->apellido,
-                    $estudiante->dni,
-                    $estudiante->email
-                );
-                $this->estudiantes[] = $nuevoEstudiante;
-            } else {
-                echo "Los datos del estudiante no están en el formato esperado.";
-            }
-                }
+            $nuevoEstudiante = new Estudiante(
+                $estudiante['nombre'],
+                $estudiante['apellido'],
+                $estudiante['dni'],
+                $estudiante['email']
+            );
+            $this->estudiantes[] = $nuevoEstudiante;
+        }
     }
-    
-    
+
     public function eliminarEstudiantePorDNI($dni) {
         $conexion = Conexion::getConexion();
         try {
             $query = $conexion->prepare("DELETE FROM estudiante WHERE dni = :dni");
             $query->bindParam(':dni', $dni);
             $resultado = $query->execute();
-    
+            
             if ($resultado && $query->rowCount() > 0) {
-                $this->cargarEstudiantesDesdePostgrees();
+                $this->cargarEstudiantesDesdePostgres();
                 return true;
             }
     
-        return false;
-        }catch (PDOException $e) {
-            echo 'Error al eliminar Estudiante: No puedes eliminar un Estudiante con Inscripciones.';
+            return false;
+        } catch (PDOException $e) {
+            echo 'Error al eliminar Estudiante: ' . $e->getMessage();
+            return false;
         }
-    }   
-    
-    
-    
-    
+    }
+
     public function modificarEstudiantePorDNI($dni, $nuevoNombre, $nuevoApellido, $nuevoEmail) {
         $conexion = Conexion::getConexion();
         $query = $conexion->prepare("UPDATE estudiante SET nombre = :nuevoNombre, apellido = :nuevoApellido, email = :nuevoEmail WHERE dni = :dni");
@@ -99,13 +88,12 @@ class gestionEstudiante {
         $resultado = $query->execute();
     
         if ($resultado && $query->rowCount() > 0) {
-            $this->cargarEstudiantesDesdePostgrees();
+            $this->cargarEstudiantesDesdePostgres();
             return true;
         }
         
         return false;
     }
-    
 
     public function verDatosEInscripcionesPorDNI($dni) {
         $estudianteEncontrado = $this->buscarEstudiantePorDNI($dni);
@@ -120,7 +108,6 @@ class gestionEstudiante {
             echo "No se encontró ningún estudiante con el DNI $dni.\n";
         }
     }
-    
 
     public function guardarEstudiantes() {
         $conexion = Conexion::getConexion();
@@ -144,26 +131,38 @@ class gestionEstudiante {
             $query->execute();
         }
         echo "Estudiante agregado correctamente.\n";
-    }    
+    }
 
     public function obtenerEstudiantesParaInscripcion() {
-        $estudiantesParaInscripcion = [];
-        foreach ($this->estudiantes as $estudiante) {
-            $estudiantesParaInscripcion[] = $estudiante;
-        }
-        return $estudiantesParaInscripcion;
+        return $this->estudiantes;
     }
-    
+
     public function listarEstudiantes() {
         if (empty($this->estudiantes)) {
             echo "No hay estudiantes disponibles.\n";
         } else {
             echo "\nLista de estudiantes:\n";
             foreach ($this->estudiantes as $estudiante) {
-                echo "Nombre: " . $estudiante->getNombre() . ", Apellido: " . $estudiante->getApellido() . ", DNI: " . $estudiante->getDNI() . "\n";
+                $estudiante->mostrar();
             }
             echo PHP_EOL;
         }
     }
-}
 
+    public function obtenerEstudiantesInscritosEnCurso($idCurso) {
+        $conexion = Conexion::getConexion();
+        $query = $conexion->prepare("SELECT dni_estudiante FROM inscripcion WHERE id_curso = :idCurso");
+        $query->bindParam(':idCurso', $idCurso);
+        $query->execute();
+        $resultados = $query->fetchAll(PDO::FETCH_ASSOC);
+
+        $estudiantes = [];
+        foreach ($resultados as $resultado) {
+            $estudiante = $this->buscarEstudiantePorDNI($resultado['dni_estudiante']);
+            if ($estudiante) {
+                $estudiantes[] = $estudiante;
+            }
+        }
+        return $estudiantes;
+    }
+}

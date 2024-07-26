@@ -65,4 +65,7 @@ class Estudiante {
         return $this;
     }
 
+    public function mostrar(){
+        echo "Nombre: " . $this->getNombre() . ", Apellido: " . $this->getApellido() . ", DNI: " . $this->getDNI() . "\n";
+    }    
 }
