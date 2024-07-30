@@ -35,14 +35,6 @@ class MenuAdminControlador {
                     echo "Seleccionaste Administración de Inscripciones\n";
                     $this->admInscripciones();
                     break;
-                case '4':  //No implementado aún, va a estar en estudiante
-                    echo "Seleccionaste Administración de Boletines\n";
-                    $this->admBoletines();
-                    break;
-                case '5':   //#Está implementado en cursos. Acá no va, hay que sacarlo
-                    echo "Seleccionaste Gestión de Notas\n";
-                    $this->gestionarNotas(); // Nueva opción para manejar notas
-                    break;
                 case '0':
                     echo "Seleccionaste Volver Al Menu Principal\n";
                     return;
