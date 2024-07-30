@@ -3,7 +3,7 @@
 class MenuEstudianteVista extends Vista{
    
     public function mostrarMenuEstudiantes() {
-        $opcionesEstudiantes = ["Inscribirse a curso", "Anular inscripcion a curso", "Ver cursos inscriptos", "Ver boletín"];
+        $opcionesEstudiantes = ["Inscribirse a Curso", "Anular Inscripcion a Curso", "Ver Cursos Inscriptos", "Ver Boletín"];
         $this->mostrarMenu($opcionesEstudiantes);
     }
 
