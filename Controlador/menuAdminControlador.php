@@ -160,8 +160,11 @@ class MenuAdminControlador {
                     $this->inscripcion->mostrarInscripcionesPorCurso($idVer);
                     break;
                 case '5':   
-                    echo "Seleccionaste Gestión de Notas\n";
-                    $this->gestionarNotas(); // Nueva opción para manejar notas
+                    echo "Seleccionaste Gestión de Notas\n";// Nueva opción para manejar notas
+                    $cursos = $this->gestionCurso->obtenerCursos();
+                    $this->gestionCurso->mostrarCursosEncontrados($cursos);
+                    $idVer = readline("Ingrese el ID del curso para ingresar notas: ");
+                    $this->inscripcion->ingresarNotasPorCurso($idVer); 
                     break;
                 case '0':
                     echo "Seleccionaste Volver Al Menu Principal\n";
