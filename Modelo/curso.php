@@ -32,7 +32,7 @@ class Curso {
     }
 
     public function setCupo($cupo) {
-        $this->id = $cupo;
+        $this->cupo = $cupo;
     }
 
 }
