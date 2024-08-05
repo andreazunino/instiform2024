@@ -200,7 +200,7 @@ class MenuAdminControlador {
                 case '3':
                     echo "Seleccionaste Dar de Alta Inscripciones\n";
                     
-                    $estudiantes = $gestionEstudiante->obtenerEstudiantesParaInscripcion();
+                    $estudiantes = $this->gestionEstudiante->obtenerEstudiantesParaInscripcion();
                                 
                     echo "Estudiantes Disponibles:\n";
                     foreach ($estudiantes as $estudiante) {

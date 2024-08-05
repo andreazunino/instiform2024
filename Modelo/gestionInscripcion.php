@@ -164,7 +164,9 @@ class Inscripcion {
             }
             if ($indice !== null) {
                 unset($this->inscripciones[$indice]);
+                $this->guardarInscripciones();
                 echo "Inscripción eliminada exitosamente.\n";
+                return true;
             } else {
                 echo "No se encontró ninguna inscripción con el ID especificado.\n";
             }
